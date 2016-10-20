@@ -474,7 +474,7 @@ void collide_8(bucket_t* dst, bucket_t* src, element_indice_t* old_indices, size
 }
 
 
-size_t produce_solutions(uint32_t* dst_solutions, bucket_t* src, element_indice_t** indices, size_t n_src_elements, const crypto_generichash_blake2b_state* digest) {
+size_t produce_solutions(uint32_t* dst_solutions, bucket_t* src, element_indice_t** indices, size_t n_src_elements, const blake2b_state* digest) {
     size_t n_solutions = 0;
     size_t start_bit = ((EQUIHASH_K-1)*NUM_COLLISION_BITS);
     size_t start_byte = start_bit / 8;
@@ -582,7 +582,7 @@ void equihash_cleanup_buckets(bucket_t* src, bucket_t* dst, element_indice_t** i
     free(dst);
 }
 
-size_t equihash(uint32_t* dst_solutions, const crypto_generichash_blake2b_state* digest, bucket_t* src, bucket_t* dst, element_indice_t** indices) {
+size_t equihash(uint32_t* dst_solutions, const blake2b_state* digest, bucket_t* src, bucket_t* dst, element_indice_t** indices) {
     //double t = get_tttime();
     initial_bucket_hashing(src, digest);
     ////////fprintf(stderr, "init: %f\n", get_tttime() - t);

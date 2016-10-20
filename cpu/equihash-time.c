@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
-#include <sodium.h>
 #include <unistd.h>
 #include <time.h>
 #include <sys/time.h>
@@ -12,6 +11,7 @@
 #include <pthread.h>
 #include <float.h>
 #include <signal.h>
+#include "blake/blake2.h"
 #include "thpool/thpool.h"
 
 double get_time() {
@@ -29,11 +29,42 @@ typedef struct bucket bucket_t;
 
 void equihash_init_buckets(bucket_t**, bucket_t**, element_indice_t*** indices);
 
-size_t equihash(uint32_t dst_solutions[20][512], const crypto_generichash_blake2b_state*, bucket_t*, bucket_t*, element_indice_t** indices);
+size_t equihash(uint32_t dst_solutions[20][512], const blake2b_state*, bucket_t*, bucket_t*, element_indice_t** indices);
+
+
+/*
+    FROM JOHN TROMP's implementation
+*/
+void create_header(blake2b_state *ctx, const char *header, size_t header_size, uint32_t nce) {
+    uint32_t le_N = 200;
+    uint32_t le_K = 9;
+    uint8_t personal[] = "ZcashPoW01230123";
+    memcpy(personal+8,  &le_N, 4);
+    memcpy(personal+12, &le_K, 4);
+    blake2b_param P[1];
+    P->digest_length = (512/200)*200/8;
+    P->key_length    = 0;
+    P->fanout        = 1;
+    P->depth         = 1;
+    P->leaf_length   = 0;
+    P->node_offset   = 0;
+    P->node_depth    = 0;
+    P->inner_length  = 0;
+    memset(P->reserved, 0, sizeof(P->reserved));
+    memset(P->salt,     0, sizeof(P->salt));
+    memcpy(P->personal, (const uint8_t *)personal, 16);
+    blake2b_init_param(ctx, P);
+    blake2b_update(ctx, (const uint8_t *)header, header_size);
+    uint8_t nonce[32];
+    memset(nonce, 0, 32);
+    uint32_t le_nonce = nce;
+    memcpy(nonce,  &le_nonce, 4);
+    blake2b_update(ctx, nonce, 32);
+}
 
 
 typedef struct equihash_thread_arg {
-    crypto_generichash_blake2b_state state;
+    blake2b_state state;
     bucket_t* src;
     bucket_t* dst;
     element_indice_t** indices;
@@ -60,64 +91,53 @@ void threaded_equihash(void* targ) {
 }
 
 int main(int argc, char** argv) {
-    sodium_init();
-    uint32_t t = 100;
-
-    //srand(time(NULL));
-    srand(0); // we fix the seed for now so that testing is comparable
+    uint32_t t = 1000;
 
     size_t iterations = strtoul(argv[1], NULL, 10);
-    size_t start_num_threads = strtoul(argv[2], NULL, 10);
-    size_t max_num_threads = strtoul(argv[3], NULL, 10);
-    size_t n_runs = 100;
-    
-    for(size_t num_threads = start_num_threads; num_threads <= max_num_threads; ++num_threads) {
-        //uint64_t thread_ids[num_threads];
-        printf("running %zu threads\n", num_threads);
-        threadpool thpool = thpool_init(num_threads);
-        double total_time = 0;
-        n_solutions = 0;
-        equihash_thread_arg_t thread_args[num_threads*iterations];
-        for(size_t i = 0; i < num_threads*2; ++i) {
-            equihash_init_buckets(&thread_args[i].src, &thread_args[i].dst, &thread_args[i].indices);
-        }
+    size_t num_threads = strtoul(argv[2], NULL, 10);
 
-        start_time = get_time();
-        //for(size_t run_i = 0; run_i < n_runs; ++run_i) {
-        for(size_t i = 0; i < num_threads*iterations; ++i) {
-            t = rand();
-            crypto_generichash_blake2b_state curr_state;
-            crypto_generichash_blake2b_init(&curr_state, (const unsigned char*)"", 0, (512/200)*200/8);
-            crypto_generichash_blake2b_update(&curr_state, (const uint8_t*)&t, 4);
-            thread_args[i].state = curr_state;
-            thread_args[i].src = thread_args[i % (2*num_threads)].src;
-            thread_args[i].dst = thread_args[i % (2*num_threads)].dst;
-            thread_args[i].indices = thread_args[i % (2*num_threads)].indices;
-
-            thpool_add_work(thpool, threaded_equihash, &thread_args[i]);
-        }
-
-        thpool_wait(thpool);
-        //}
-        total_time = get_time() - start_time;
-
-        fprintf(stderr, "num concurrent threads: %u\n", num_threads);
-        fprintf(stderr, "min. time: %lf\n", min_time);
-        fprintf(stderr, "max. time: %lf\n", max_time);
-        fprintf(stderr, "avg. time: %lf\n", total_time / iterations);
-        fprintf(stderr, "tot. time: %lf\n", total_time);
-        fprintf(stderr, "%lf sol/s\n", n_solutions / total_time);
-        fprintf(stderr, "total solutions: %zu\n", n_solutions);
-
-        for(size_t i = 0; i < num_threads*2; ++i) {
-            free(thread_args[i].src);
-            free(thread_args[i].dst);
-            for(size_t j = 0; j < 9; ++j) {
-                free(thread_args[i].indices[j]);
-            }
-            free(thread_args[i].indices);
-        }
-        thpool_destroy(thpool);
+    printf("running %zu threads\n", num_threads);
+    threadpool thpool = thpool_init(num_threads);
+    double total_time = 0;
+    n_solutions = 0;
+    equihash_thread_arg_t thread_args[num_threads*iterations];
+    for(size_t i = 0; i < num_threads*2; ++i) {
+        equihash_init_buckets(&thread_args[i].src, &thread_args[i].dst, &thread_args[i].indices);
     }
+
+    start_time = get_time();
+    for(size_t i = 0; i < num_threads*iterations; ++i) {
+        blake2b_state curr_state;
+        create_header(&curr_state, "", 0, t);
+        t++;
+        thread_args[i].state = curr_state;
+        thread_args[i].src = thread_args[i % (2*num_threads)].src;
+        thread_args[i].dst = thread_args[i % (2*num_threads)].dst;
+        thread_args[i].indices = thread_args[i % (2*num_threads)].indices;
+
+        thpool_add_work(thpool, threaded_equihash, &thread_args[i]);
+    }
+
+    thpool_wait(thpool);
+    total_time = get_time() - start_time;
+
+    fprintf(stdout, "num concurrent threads: %u\n", num_threads);
+    fprintf(stdout, "min. time: %lf\n", min_time);
+    fprintf(stdout, "max. time: %lf\n", max_time);
+    fprintf(stdout, "avg. time: %lf\n", total_time / iterations);
+    fprintf(stdout, "tot. time: %lf\n", total_time);
+    fprintf(stdout, "%lf sol/s\n", n_solutions / total_time);
+    fprintf(stdout, "total solutions: %zu\n", n_solutions);
+
+    for(size_t i = 0; i < num_threads*2; ++i) {
+        free(thread_args[i].src);
+        free(thread_args[i].dst);
+        for(size_t j = 0; j < 9; ++j) {
+            free(thread_args[i].indices[j]);
+        }
+        free(thread_args[i].indices);
+    }
+    thpool_destroy(thpool);
+
     return 0;
 }
