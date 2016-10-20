@@ -93,6 +93,11 @@ void threaded_equihash(void* targ) {
 int main(int argc, char** argv) {
     uint32_t t = 1000;
 
+    if(argc < 3) {
+        fprintf(stderr, "%s <iterations> <number of threads>\n", argv[0]);
+        exit(1);
+    }
+
     size_t iterations = strtoul(argv[1], NULL, 10);
     size_t num_threads = strtoul(argv[2], NULL, 10);
 
