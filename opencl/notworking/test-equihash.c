@@ -20,12 +20,6 @@ size_t equihash(uint32_t*, crypto_generichash_blake2b_state*);
 
 
 int main(int argc, char** argv) {
-
-    if(argc < 2) {
-        fprintf(stderr, "%s <test val>\n", argv[0]);
-        exit(1);
-    }
-
     sodium_init();
     uint32_t t = strtoul(argv[1], NULL, 10);
 
