@@ -168,7 +168,7 @@ void build(cl_device_id device_id, cl_program program) {
     clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, ret_val_size, build_log, NULL);
 
     build_log[ret_val_size] = '\0';
-    //fprintf(stderr, "%s\n\n", build_log);
+    fprintf(stderr, "%s\n\n", build_log);
 }
 
 const char *get_error_string(cl_int error)
@@ -292,6 +292,7 @@ typedef struct gpu_config {
     cl_mem blake2b_digest;
     cl_mem n_solutions;
     cl_mem dst_solutions;
+    cl_mem elements;
 } gpu_config_t;
 
 void init_program(gpu_config_t* config, const char* file_path, unsigned flags) {
@@ -316,8 +317,11 @@ void init_program(gpu_config_t* config, const char* file_path, unsigned flags) {
     config->context = clCreateContext(NULL, 1, &config->device_ids, NULL, NULL, &ret);
     check_error(ret, __LINE__);
 
+
     config->program = clCreateProgramWithSource(config->context, 1, &config->program_source_code, &config->program_source_code_size, &ret);
     check_error(ret, __LINE__);
+
+    build(config->device_ids, config->program);
 
     check_error(clBuildProgram(config->program, 1, &config->device_ids, NULL, NULL, NULL), __LINE__);
     
@@ -365,6 +369,11 @@ void init_program(gpu_config_t* config, const char* file_path, unsigned flags) {
     check_error(ret, __LINE__);
     check_error(clEnqueueFillBuffer(config->command_queue, config->n_solutions, &zero, 1, 0, sizeof(uint32_t), 0, NULL, NULL), __LINE__);
 
+
+    config->elements = clCreateBuffer(config->context, CL_MEM_READ_WRITE, sizeof(element_t)*EQUIHASH_K*NUM_INDICES/2*(1<<16), NULL, &ret);
+    check_error(ret, __LINE__);
+    check_error(clEnqueueFillBuffer(config->command_queue, config->n_solutions, &zero, 1, 0, sizeof(uint32_t), 0, NULL, NULL), __LINE__);
+
     //fprintf(stderr, "Total gpu buffer %u\n", NUM_BUCKETS * sizeof(bucket_t) * EQUIHASH_K + 2* (NUM_VALUES + NUM_VALUES / 2) * sizeof(digest_t) + sizeof(crypto_generichash_blake2b_state) + 20*NUM_INDICES*sizeof(uint32_t) + sizeof(uint32_t));
 
     free(config->program_source_code);
@@ -391,7 +400,7 @@ void cleanup_program(gpu_config_t* config) {
 
 size_t equihash(uint32_t* dst_solutions, crypto_generichash_blake2b_state* digest) {
     size_t global_work_offset = 0;
-    size_t global_work_size = 1 << 17;
+    size_t global_work_size = 1 << 20;
     size_t local_work_size = 32;
     gpu_config_t config;
     init_program(&config, "./equihash.cl", 0);
@@ -417,6 +426,8 @@ size_t equihash(uint32_t* dst_solutions, crypto_generichash_blake2b_state* diges
     fprintf(stderr, "step0: %0.3f ms\n", (time_end - time_start) / 1000000.0);
     total_time += (time_end-time_start);
 
+    global_work_size = 1 << 20;
+
 
     uint32_t i = 1;
     for(i = 1; i < EQUIHASH_K; ++i) {
@@ -439,6 +450,7 @@ size_t equihash(uint32_t* dst_solutions, crypto_generichash_blake2b_state* diges
     }
 
     uint32_t n_solutions = 0;
+    global_work_size = 1 << 16;
 
 
     check_error(clEnqueueFillBuffer(config.command_queue, config.n_solutions, &zero, 1, 0, sizeof(uint32_t), 0, NULL, NULL), __LINE__);
@@ -447,6 +459,7 @@ size_t equihash(uint32_t* dst_solutions, crypto_generichash_blake2b_state* diges
     check_error(clSetKernelArg(config.produce_solutions_kernel, 2, sizeof(cl_mem), (void *)&config.buckets), __LINE__);
     check_error(clSetKernelArg(config.produce_solutions_kernel, 3, sizeof(cl_mem), (void *)&config.digests[0]), __LINE__);
     check_error(clSetKernelArg(config.produce_solutions_kernel, 4, sizeof(cl_mem), (void *)&config.blake2b_digest), __LINE__);
+    check_error(clSetKernelArg(config.produce_solutions_kernel, 5, sizeof(cl_mem), (void *)&config.elements), __LINE__);
     check_error(clEnqueueNDRangeKernel(config.command_queue, config.produce_solutions_kernel, 1, &global_work_offset, &global_work_size, &local_work_size, 0, NULL, &timing_events[9]), __LINE__);
     check_error(clWaitForEvents(1, &timing_events[9]), __LINE__);
     check_error(clGetEventProfilingInfo(timing_events[9], CL_PROFILING_COMMAND_START, sizeof(time_start), &time_start, NULL), __LINE__);
