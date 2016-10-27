@@ -24,11 +24,10 @@
 #define NUM_BUCKETS (1 << NUM_COLLISION_BITS)/NUM_INDICES_PER_BUCKET
 #define DIGEST_SIZE 32
 
-typedef uint64_t digest_t[(DIGEST_SIZE + sizeof (uint64_t) - 1) /
-			  sizeof (uint64_t)];
+typedef uint64_t digest_t[(DIGEST_SIZE + sizeof(uint64_t) - 1) /
+                          sizeof(uint64_t)];
 
-typedef struct gpu_config
-{
+typedef struct gpu_config {
   unsigned flags;
 
   char *program_source_code;
@@ -71,35 +70,31 @@ typedef struct gpu_config
 } gpu_config_t;
 
 
-typedef struct element
-{
+typedef struct element {
   uint32_t digest_index;
   uint32_t parent_bucket_data;
   uint32_t a;
   uint32_t b;
 } element_t;
 
-typedef struct bucket
-{
+typedef struct bucket {
   element_t data[NUM_INDICES_PER_BUCKET / 8 * 28];
   volatile unsigned size;
 } bucket_t;
 
-typedef struct src_local_bucket
-{
+typedef struct src_local_bucket {
   element_t data[17];
 } src_local_bucket_t;
 
-typedef struct dst_local_bucket
-{
+typedef struct dst_local_bucket {
   element_t data[128];
 } dst_local_bucket_t;
 
 
-size_t equihash (uint32_t *, crypto_generichash_blake2b_state *,
-		 gpu_config_t * base_config);
-void equihash_init (gpu_config_t * config);
-void equihash_cleanup (gpu_config_t * config);
+size_t equihash(uint32_t *, crypto_generichash_blake2b_state *,
+                gpu_config_t * base_config);
+void equihash_init(gpu_config_t * config);
+void equihash_cleanup(gpu_config_t * config);
 
 
 #endif

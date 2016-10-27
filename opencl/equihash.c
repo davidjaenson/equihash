@@ -12,11 +12,10 @@
 #include <CL/cl.h>
 #include "equihash.h"
 
-double
-get_ttime ()
+double get_ttime()
 {
   struct timespec ts;
-  clock_gettime (CLOCK_MONOTONIC, &ts);
+  clock_gettime(CLOCK_MONOTONIC, &ts);
   return ts.tv_sec + ts.tv_nsec / 1000000000.0;
 }
 
@@ -32,23 +31,19 @@ get_ttime ()
 
 
 
-void
-hexout (unsigned char *digest_result)
+void hexout(unsigned char *digest_result)
 {
-  for (unsigned i = 0; i < 4; ++i)
-    {
-      for (int j = 0; j < 8; ++j)
-	{
-	  int c = digest_result[i * 8 + j];
-	  printf ("%2X", c);
-	}
+  for (unsigned i = 0; i < 4; ++i) {
+    for (int j = 0; j < 8; ++j) {
+      int c = digest_result[i * 8 + j];
+      printf("%2X", c);
     }
-  printf ("\n");
+  }
+  printf("\n");
 }
 
 
-uint32_t
-mask_collision_bits (uint8_t * data, size_t bit_index)
+uint32_t mask_collision_bits(uint8_t * data, size_t bit_index)
 {
   uint32_t n = ((*data << (bit_index)) & 0xff) << 12;
   n |= ((*(++data)) << (bit_index + 4));
@@ -57,53 +52,40 @@ mask_collision_bits (uint8_t * data, size_t bit_index)
 }
 
 
-int
-compare_indices32 (uint32_t * a, uint32_t * b, size_t n_current_indices)
+int compare_indices32(uint32_t * a, uint32_t * b, size_t n_current_indices)
 {
-  for (size_t i = 0; i < n_current_indices; ++i, ++a, ++b)
-    {
-      if (*a < *b)
-	{
-	  return -1;
-	}
-      else if (*a > *b)
-	{
-	  return 1;
-	}
-      else
-	{
-	  return 0;
-	}
+  for (size_t i = 0; i < n_current_indices; ++i, ++a, ++b) {
+    if (*a < *b) {
+      return -1;
+    } else if (*a > *b) {
+      return 1;
+    } else {
+      return 0;
     }
+  }
   return 0;
 }
 
-void
-normalize_indices (uint32_t * indices)
+void normalize_indices(uint32_t * indices)
 {
-  for (size_t step_index = 0; step_index < EQUIHASH_K; ++step_index)
-    {
-      for (size_t i = 0; i < NUM_INDICES; i += (1 << (step_index + 1)))
-	{
-	  if (compare_indices32
-	      (indices + i, indices + i + (1 << step_index),
-	       (1 << step_index)) > 0)
-	    {
-	      uint32_t tmp_indices[(1 << step_index)];
-	      memcpy (tmp_indices, indices + i,
-		      (1 << step_index) * sizeof (uint32_t));
-	      memcpy (indices + i, indices + i + (1 << step_index),
-		      (1 << step_index) * sizeof (uint32_t));
-	      memcpy (indices + i + (1 << step_index), tmp_indices,
-		      (1 << step_index) * sizeof (uint32_t));
-	    }
-	}
+  for (size_t step_index = 0; step_index < EQUIHASH_K; ++step_index) {
+    for (size_t i = 0; i < NUM_INDICES; i += (1 << (step_index + 1))) {
+      if (compare_indices32
+          (indices + i, indices + i + (1 << step_index),
+           (1 << step_index)) > 0) {
+        uint32_t tmp_indices[(1 << step_index)];
+        memcpy(tmp_indices, indices + i, (1 << step_index) * sizeof(uint32_t));
+        memcpy(indices + i, indices + i + (1 << step_index),
+               (1 << step_index) * sizeof(uint32_t));
+        memcpy(indices + i + (1 << step_index), tmp_indices,
+               (1 << step_index) * sizeof(uint32_t));
+      }
     }
+  }
 }
 
 
-void
-xor_elements (uint8_t * dst, uint8_t * a, uint8_t * b)
+void xor_elements(uint8_t * dst, uint8_t * a, uint8_t * b)
 {
   ((uint64_t *) dst)[0] = ((uint64_t *) a)[0] ^ ((uint64_t *) b)[0];
   ((uint64_t *) dst)[1] = ((uint64_t *) a)[1] ^ ((uint64_t *) b)[1];
@@ -112,95 +94,87 @@ xor_elements (uint8_t * dst, uint8_t * a, uint8_t * b)
 }
 
 void
-hash (uint8_t * dst, uint32_t in,
-      const crypto_generichash_blake2b_state * digest)
+hash(uint8_t * dst, uint32_t in,
+     const crypto_generichash_blake2b_state * digest)
 {
   uint32_t tmp_in = in / 2;
   crypto_generichash_blake2b_state new_digest = *digest;
-  crypto_generichash_blake2b_update (&new_digest, (uint8_t *) & tmp_in,
-				     sizeof (uint32_t));
-  crypto_generichash_blake2b_final (&new_digest, (uint8_t *) dst,
-				    2 * DIGEST_SIZE);
+  crypto_generichash_blake2b_update(&new_digest, (uint8_t *) & tmp_in,
+                                    sizeof(uint32_t));
+  crypto_generichash_blake2b_final(&new_digest, (uint8_t *) dst,
+                                   2 * DIGEST_SIZE);
 }
 
 
 int
-is_indices_valid (uint32_t * indices,
-		  const crypto_generichash_blake2b_state * digest)
+is_indices_valid(uint32_t * indices,
+                 const crypto_generichash_blake2b_state * digest)
 {
   uint8_t digest_results[NUM_INDICES][DIGEST_SIZE];
-  memset (digest_results, '\0', NUM_INDICES * DIGEST_SIZE);
+  memset(digest_results, '\0', NUM_INDICES * DIGEST_SIZE);
 
-  for (size_t i = 0; i < NUM_INDICES; ++i)
-    {
-      uint8_t digest_tmp[2 * DIGEST_SIZE];
-      hash (digest_tmp, indices[i], digest);
-      memcpy (digest_results[i],
-	      digest_tmp + ((indices[i] % 2) * EQUIHASH_N / 8), DIGEST_SIZE);
+  for (size_t i = 0; i < NUM_INDICES; ++i) {
+    uint8_t digest_tmp[2 * DIGEST_SIZE];
+    hash(digest_tmp, indices[i], digest);
+    memcpy(digest_results[i],
+           digest_tmp + ((indices[i] % 2) * EQUIHASH_N / 8), DIGEST_SIZE);
+  }
+
+  for (size_t step_index = 0; step_index < EQUIHASH_K; ++step_index) {
+    for (size_t i = 0; i < (NUM_INDICES >> step_index); i += 2) {
+      uint8_t digest_tmp[DIGEST_SIZE];
+      xor_elements(digest_tmp, digest_results[i], digest_results[i + 1]);
+
+      size_t start_bit = step_index * NUM_COLLISION_BITS;
+      size_t byte_index = start_bit / 8;
+      size_t bit_index = start_bit % 8;
+
+      if (!mask_collision_bits
+          (((uint8_t *) digest_tmp) + byte_index, bit_index) == 0) {
+        return 0;
+      }
+
+      memcpy(digest_results[i / 2], digest_tmp, DIGEST_SIZE);
     }
-
-  for (size_t step_index = 0; step_index < EQUIHASH_K; ++step_index)
-    {
-      for (size_t i = 0; i < (NUM_INDICES >> step_index); i += 2)
-	{
-	  uint8_t digest_tmp[DIGEST_SIZE];
-	  xor_elements (digest_tmp, digest_results[i], digest_results[i + 1]);
-
-	  size_t start_bit = step_index * NUM_COLLISION_BITS;
-	  size_t byte_index = start_bit / 8;
-	  size_t bit_index = start_bit % 8;
-
-	  if (!mask_collision_bits
-	      (((uint8_t *) digest_tmp) + byte_index, bit_index) == 0)
-	    {
-	      return 0;
-	    }
-
-	  memcpy (digest_results[i / 2], digest_tmp, DIGEST_SIZE);
-	}
-    }
+  }
 
   size_t start_bit = EQUIHASH_K * NUM_COLLISION_BITS;
   size_t byte_index = start_bit / 8;
   size_t bit_index = start_bit % 8;
-  return mask_collision_bits (((uint8_t *) digest_results[0]) + byte_index,
-			      bit_index) == 0;
+  return mask_collision_bits(((uint8_t *) digest_results[0]) + byte_index,
+                             bit_index) == 0;
 }
 
 
-void
-build (cl_device_id device_id, cl_program program)
+void build(cl_device_id device_id, cl_program program)
 {
   const char *options = "";
-  cl_int ret_val =
-    clBuildProgram (program, 1, &device_id, options, NULL, NULL);
+  cl_int ret_val = clBuildProgram(program, 1, &device_id, options, NULL, NULL);
 
   // avoid abortion due to CL_BILD_PROGRAM_FAILURE
 
   cl_build_status build_status;
-  clGetProgramBuildInfo (program, device_id, CL_PROGRAM_BUILD_STATUS,
-			 sizeof (cl_build_status), &build_status, NULL);
+  clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_STATUS,
+                        sizeof(cl_build_status), &build_status, NULL);
 
   char *build_log;
   size_t ret_val_size;
 
-  clGetProgramBuildInfo (program, device_id, CL_PROGRAM_BUILD_LOG, 0, NULL,
-			 &ret_val_size);
+  clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, 0, NULL,
+                        &ret_val_size);
 
-  build_log = calloc (10000, 1);
+  build_log = calloc(10000, 1);
 
-  clGetProgramBuildInfo (program, device_id, CL_PROGRAM_BUILD_LOG,
-			 ret_val_size, build_log, NULL);
+  clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG,
+                        ret_val_size, build_log, NULL);
 
   build_log[ret_val_size] = '\0';
-  fprintf (stderr, "%s\n\n", build_log);
+  fprintf(stderr, "%s\n\n", build_log);
 }
 
-const char *
-get_error_string (cl_int error)
+const char *get_error_string(cl_int error)
 {
-  switch (error)
-    {
+  switch (error) {
       // run-time and JIT compiler errors
     case 0:
       return "CL_SUCCESS";
@@ -339,109 +313,105 @@ get_error_string (cl_int error)
     case -9999:
       return "NVIDIA: ILLEGAL READ OR WRITE TO A BUFFER";
     default:
-      fprintf (stderr, "'%d'\n", error);
+      fprintf(stderr, "'%d'\n", error);
       return "Unknown OpenCL error";
-    }
+  }
 }
 
 
-void
-check_error (cl_int ret, unsigned line_number)
+void check_error(cl_int ret, unsigned line_number)
 {
-  if (ret != 0)
-    {
-      fprintf (stderr, "An error occured on line %u: %s\n", line_number,
-	       get_error_string (ret));
-      exit (1);
-    }
+  if (ret != 0) {
+    fprintf(stderr, "An error occured on line %u: %s\n", line_number,
+            get_error_string(ret));
+    exit(1);
+  }
 }
 
 
-void
-equihash_init (gpu_config_t * config)
+void equihash_init(gpu_config_t * config)
 {
-  memset (config, '\0', sizeof (gpu_config_t));
+  memset(config, '\0', sizeof(gpu_config_t));
 
   config->flags = 0;
 
-  FILE *f = fopen ("equihash.cl", "r");
-  if (!f)
-    {
-      fprintf (stderr, "program with path \"equihash.cl\".\n");
-      exit (1);
-    }
-  config->program_source_code = calloc (400000, sizeof (char));
+  FILE *f = fopen("equihash.cl", "r");
+  if (!f) {
+    fprintf(stderr, "program with path \"equihash.cl\".\n");
+    exit(1);
+  }
+  config->program_source_code = calloc(400000, sizeof(char));
   config->program_source_code_size =
-    fread (config->program_source_code, 1, 400000, f);
-  fclose (f);
+    fread(config->program_source_code, 1, 400000, f);
+  fclose(f);
 
   cl_int ret = 0;
   cl_int zero = 0;
 
-  check_error (clGetPlatformIDs
-	       (1, &config->platform_ids, &config->n_platforms), __LINE__);
-  check_error (clGetDeviceIDs
-	       (config->platform_ids, CL_DEVICE_TYPE_DEFAULT, 1,
-		&config->device_ids, &config->n_devices), __LINE__);
+  check_error(clGetPlatformIDs
+              (1, &config->platform_ids, &config->n_platforms), __LINE__);
+  check_error(clGetDeviceIDs
+              (config->platform_ids, CL_DEVICE_TYPE_DEFAULT, 1,
+               &config->device_ids, &config->n_devices), __LINE__);
   config->context =
-    clCreateContext (NULL, 1, &config->device_ids, NULL, NULL, &ret);
-  check_error (ret, __LINE__);
+    clCreateContext(NULL, 1, &config->device_ids, NULL, NULL, &ret);
+  check_error(ret, __LINE__);
 
 
   config->program =
-    clCreateProgramWithSource (config->context, 1,
-			       &config->program_source_code,
-			       &config->program_source_code_size, &ret);
-  check_error (ret, __LINE__);
+    clCreateProgramWithSource(config->context, 1,
+                              &config->program_source_code,
+                              &config->program_source_code_size, &ret);
+  check_error(ret, __LINE__);
 
-  build (config->device_ids, config->program);
+  build(config->device_ids, config->program);
 
-  check_error (clBuildProgram
-	       (config->program, 1, &config->device_ids, NULL, NULL, NULL),
-	       __LINE__);
+  check_error(clBuildProgram
+              (config->program, 1, &config->device_ids, NULL, NULL, NULL),
+              __LINE__);
 
   config->initial_bucket_hashing_kernel =
-    clCreateKernel (config->program, "initial_bucket_hashing", &ret);
-  check_error (ret, __LINE__);
+    clCreateKernel(config->program, "initial_bucket_hashing", &ret);
+  check_error(ret, __LINE__);
 
   config->bucket_collide_and_hash_kernel =
-    clCreateKernel (config->program, "bucket_collide_and_hash", &ret);
-  check_error (ret, __LINE__);
+    clCreateKernel(config->program, "bucket_collide_and_hash", &ret);
+  check_error(ret, __LINE__);
 
   config->produce_candidates_kernel =
-    clCreateKernel (config->program, "produce_candidates", &ret);
-  check_error (ret, __LINE__);
+    clCreateKernel(config->program, "produce_candidates", &ret);
+  check_error(ret, __LINE__);
 
   config->produce_solutions_kernel =
-    clCreateKernel (config->program, "produce_solutions", &ret);
-  check_error (ret, __LINE__);
+    clCreateKernel(config->program, "produce_solutions", &ret);
+  check_error(ret, __LINE__);
 
 
 
   config->command_queue =
-    clCreateCommandQueue (config->context, config->device_ids,
-			  CL_QUEUE_PROFILING_ENABLE, &ret);
-  check_error (ret, __LINE__);
+    clCreateCommandQueue(config->context, config->device_ids,
+                         CL_QUEUE_PROFILING_ENABLE, &ret);
+  check_error(ret, __LINE__);
 
   config->buckets =
-    clCreateBuffer (config->context, CL_MEM_READ_WRITE,
-		    NUM_BUCKETS * sizeof (bucket_t) * EQUIHASH_K, NULL, &ret);
-  check_error (ret, __LINE__);
-  check_error (clEnqueueFillBuffer
-	       (config->command_queue, config->buckets, &zero, 1, 0,
-		NUM_BUCKETS * sizeof (bucket_t) * EQUIHASH_K, 0, NULL, NULL),
-	       __LINE__);
+    clCreateBuffer(config->context, CL_MEM_READ_WRITE,
+                   NUM_BUCKETS * sizeof(bucket_t) * EQUIHASH_K, NULL, &ret);
+  check_error(ret, __LINE__);
+  check_error(clEnqueueFillBuffer
+              (config->command_queue, config->buckets, &zero, 1, 0,
+               NUM_BUCKETS * sizeof(bucket_t) * EQUIHASH_K, 0, NULL, NULL),
+              __LINE__);
 
 
   config->src_local_buckets =
-    clCreateBuffer (config->context, CL_MEM_READ_WRITE,
-		    NUM_BUCKETS * NUM_INDICES_PER_BUCKET *
-		    sizeof (src_local_bucket_t), NULL, &ret);
-  check_error (ret, __LINE__);
-  check_error (clEnqueueFillBuffer
-	       (config->command_queue, config->src_local_buckets, &zero, 1, 0,
-		NUM_BUCKETS * NUM_INDICES_PER_BUCKET *
-		sizeof (src_local_bucket_t), 0, NULL, NULL), __LINE__);
+    clCreateBuffer(config->context, CL_MEM_READ_WRITE,
+                   NUM_BUCKETS * NUM_INDICES_PER_BUCKET *
+                   sizeof(src_local_bucket_t), NULL, &ret);
+  check_error(ret, __LINE__);
+  check_error(clEnqueueFillBuffer
+              (config->command_queue, config->src_local_buckets, &zero, 1, 0,
+               NUM_BUCKETS * NUM_INDICES_PER_BUCKET *
+               sizeof(src_local_bucket_t), 0, NULL, NULL), __LINE__);
 
 
   /*config->dst_local_buckets = clCreateBuffer(config->context, CL_MEM_READ_WRITE, NUM_BUCKETS * NUM_BUCKETS * sizeof(dst_local_bucket_t), NULL, &ret);
@@ -451,125 +421,122 @@ equihash_init (gpu_config_t * config)
 
 
   config->digests[0] =
-    clCreateBuffer (config->context, CL_MEM_READ_WRITE,
-		    (NUM_VALUES + NUM_VALUES / 2) * sizeof (digest_t), NULL,
-		    &ret);
-  check_error (ret, __LINE__);
-  check_error (clEnqueueFillBuffer
-	       (config->command_queue, config->digests[0], &zero, 1, 0,
-		(NUM_VALUES + NUM_VALUES / 2) * sizeof (digest_t), 0, NULL,
-		NULL), __LINE__);
+    clCreateBuffer(config->context, CL_MEM_READ_WRITE,
+                   (NUM_VALUES + NUM_VALUES / 2) * sizeof(digest_t), NULL,
+                   &ret);
+  check_error(ret, __LINE__);
+  check_error(clEnqueueFillBuffer
+              (config->command_queue, config->digests[0], &zero, 1, 0,
+               (NUM_VALUES + NUM_VALUES / 2) * sizeof(digest_t), 0, NULL,
+               NULL), __LINE__);
 
   config->digests[1] =
-    clCreateBuffer (config->context, CL_MEM_READ_WRITE,
-		    (NUM_VALUES + NUM_VALUES / 2) * sizeof (digest_t), NULL,
-		    &ret);
-  check_error (ret, __LINE__);
-  check_error (clEnqueueFillBuffer
-	       (config->command_queue, config->digests[1], &zero, 1, 0,
-		(NUM_VALUES + NUM_VALUES / 2) * sizeof (digest_t), 0, NULL,
-		NULL), __LINE__);
+    clCreateBuffer(config->context, CL_MEM_READ_WRITE,
+                   (NUM_VALUES + NUM_VALUES / 2) * sizeof(digest_t), NULL,
+                   &ret);
+  check_error(ret, __LINE__);
+  check_error(clEnqueueFillBuffer
+              (config->command_queue, config->digests[1], &zero, 1, 0,
+               (NUM_VALUES + NUM_VALUES / 2) * sizeof(digest_t), 0, NULL,
+               NULL), __LINE__);
 
   config->new_digest_index =
-    clCreateBuffer (config->context, CL_MEM_READ_WRITE, sizeof (uint32_t),
-		    NULL, &ret);
-  check_error (ret, __LINE__);
-  check_error (clEnqueueFillBuffer
-	       (config->command_queue, config->new_digest_index, &zero, 1, 0,
-		sizeof (uint32_t), 0, NULL, NULL), __LINE__);
+    clCreateBuffer(config->context, CL_MEM_READ_WRITE, sizeof(uint32_t),
+                   NULL, &ret);
+  check_error(ret, __LINE__);
+  check_error(clEnqueueFillBuffer
+              (config->command_queue, config->new_digest_index, &zero, 1, 0,
+               sizeof(uint32_t), 0, NULL, NULL), __LINE__);
 
 
   config->blake2b_digest =
-    clCreateBuffer (config->context, CL_MEM_READ_WRITE,
-		    sizeof (crypto_generichash_blake2b_state), NULL, &ret);
-  check_error (ret, __LINE__);
-  check_error (clEnqueueFillBuffer
-	       (config->command_queue, config->blake2b_digest, &zero, 1, 0,
-		sizeof (crypto_generichash_blake2b_state), 0, NULL, NULL),
-	       __LINE__);
+    clCreateBuffer(config->context, CL_MEM_READ_WRITE,
+                   sizeof(crypto_generichash_blake2b_state), NULL, &ret);
+  check_error(ret, __LINE__);
+  check_error(clEnqueueFillBuffer
+              (config->command_queue, config->blake2b_digest, &zero, 1, 0,
+               sizeof(crypto_generichash_blake2b_state), 0, NULL, NULL),
+              __LINE__);
 
   // CANDIDATES
   config->dst_candidates =
-    clCreateBuffer (config->context, CL_MEM_READ_WRITE,
-		    (1 << 16) * sizeof (element_t), NULL, &ret);
-  check_error (ret, __LINE__);
-  check_error (clEnqueueFillBuffer
-	       (config->command_queue, config->dst_candidates, &zero, 1, 0,
-		(1 << 16) * sizeof (element_t), 0, NULL, NULL), __LINE__);
+    clCreateBuffer(config->context, CL_MEM_READ_WRITE,
+                   (1 << 16) * sizeof(element_t), NULL, &ret);
+  check_error(ret, __LINE__);
+  check_error(clEnqueueFillBuffer
+              (config->command_queue, config->dst_candidates, &zero, 1, 0,
+               (1 << 16) * sizeof(element_t), 0, NULL, NULL), __LINE__);
 
 
   config->n_candidates =
-    clCreateBuffer (config->context, CL_MEM_READ_WRITE, sizeof (uint32_t),
-		    NULL, &ret);
-  check_error (ret, __LINE__);
-  check_error (clEnqueueFillBuffer
-	       (config->command_queue, config->n_candidates, &zero, 1, 0,
-		sizeof (uint32_t), 0, NULL, NULL), __LINE__);
+    clCreateBuffer(config->context, CL_MEM_READ_WRITE, sizeof(uint32_t),
+                   NULL, &ret);
+  check_error(ret, __LINE__);
+  check_error(clEnqueueFillBuffer
+              (config->command_queue, config->n_candidates, &zero, 1, 0,
+               sizeof(uint32_t), 0, NULL, NULL), __LINE__);
 
 
 
   config->dst_solutions =
-    clCreateBuffer (config->context, CL_MEM_READ_WRITE,
-		    20 * NUM_INDICES * sizeof (uint32_t), NULL, &ret);
-  check_error (ret, __LINE__);
-  check_error (clEnqueueFillBuffer
-	       (config->command_queue, config->dst_solutions, &zero, 1, 0,
-		20 * NUM_INDICES * sizeof (uint32_t), 0, NULL, NULL),
-	       __LINE__);
+    clCreateBuffer(config->context, CL_MEM_READ_WRITE,
+                   20 * NUM_INDICES * sizeof(uint32_t), NULL, &ret);
+  check_error(ret, __LINE__);
+  check_error(clEnqueueFillBuffer
+              (config->command_queue, config->dst_solutions, &zero, 1, 0,
+               20 * NUM_INDICES * sizeof(uint32_t), 0, NULL, NULL), __LINE__);
 
 
   config->n_solutions =
-    clCreateBuffer (config->context, CL_MEM_READ_WRITE, sizeof (uint32_t),
-		    NULL, &ret);
-  check_error (ret, __LINE__);
-  check_error (clEnqueueFillBuffer
-	       (config->command_queue, config->n_solutions, &zero, 1, 0,
-		sizeof (uint32_t), 0, NULL, NULL), __LINE__);
+    clCreateBuffer(config->context, CL_MEM_READ_WRITE, sizeof(uint32_t),
+                   NULL, &ret);
+  check_error(ret, __LINE__);
+  check_error(clEnqueueFillBuffer
+              (config->command_queue, config->n_solutions, &zero, 1, 0,
+               sizeof(uint32_t), 0, NULL, NULL), __LINE__);
 
 
 
   config->elements =
-    clCreateBuffer (config->context, CL_MEM_READ_WRITE,
-		    sizeof (element_t) * EQUIHASH_K * NUM_INDICES / 2 *
-		    (1 << 11), NULL, &ret);
-  check_error (ret, __LINE__);
-  check_error (clEnqueueFillBuffer
-	       (config->command_queue, config->n_solutions, &zero, 1, 0,
-		sizeof (uint32_t), 0, NULL, NULL), __LINE__);
+    clCreateBuffer(config->context, CL_MEM_READ_WRITE,
+                   sizeof(element_t) * EQUIHASH_K * NUM_INDICES / 2 *
+                   (1 << 11), NULL, &ret);
+  check_error(ret, __LINE__);
+  check_error(clEnqueueFillBuffer
+              (config->command_queue, config->n_solutions, &zero, 1, 0,
+               sizeof(uint32_t), 0, NULL, NULL), __LINE__);
 
   //fprintf(stderr, "Total gpu buffer %u\n", NUM_BUCKETS * sizeof(bucket_t) * EQUIHASH_K + 2* (NUM_VALUES + NUM_VALUES / 2) * sizeof(digest_t) + sizeof(crypto_generichash_blake2b_state) + 20*NUM_INDICES*sizeof(uint32_t) + sizeof(uint32_t));
 
-  free (config->program_source_code);
+  free(config->program_source_code);
 
 }
 
-void
-equihash_cleanup (gpu_config_t * config)
+void equihash_cleanup(gpu_config_t * config)
 {
-  check_error (clReleaseProgram (config->program), __LINE__);
-  check_error (clReleaseKernel (config->initial_bucket_hashing_kernel),
-	       __LINE__);
-  check_error (clReleaseKernel (config->bucket_collide_and_hash_kernel),
-	       __LINE__);
-  check_error (clReleaseKernel (config->produce_solutions_kernel), __LINE__);
-  check_error (clReleaseCommandQueue (config->command_queue), __LINE__);
+  check_error(clReleaseProgram(config->program), __LINE__);
+  check_error(clReleaseKernel(config->initial_bucket_hashing_kernel), __LINE__);
+  check_error(clReleaseKernel(config->bucket_collide_and_hash_kernel),
+              __LINE__);
+  check_error(clReleaseKernel(config->produce_solutions_kernel), __LINE__);
+  check_error(clReleaseCommandQueue(config->command_queue), __LINE__);
 
 
-  check_error (clReleaseMemObject (config->dst_solutions), __LINE__);
-  check_error (clReleaseMemObject (config->n_solutions), __LINE__);
-  check_error (clReleaseMemObject (config->digests[0]), __LINE__);
-  check_error (clReleaseMemObject (config->digests[1]), __LINE__);
-  check_error (clReleaseMemObject (config->buckets), __LINE__);
-  check_error (clReleaseMemObject (config->blake2b_digest), __LINE__);
-  check_error (clReleaseContext (config->context), __LINE__);
+  check_error(clReleaseMemObject(config->dst_solutions), __LINE__);
+  check_error(clReleaseMemObject(config->n_solutions), __LINE__);
+  check_error(clReleaseMemObject(config->digests[0]), __LINE__);
+  check_error(clReleaseMemObject(config->digests[1]), __LINE__);
+  check_error(clReleaseMemObject(config->buckets), __LINE__);
+  check_error(clReleaseMemObject(config->blake2b_digest), __LINE__);
+  check_error(clReleaseContext(config->context), __LINE__);
 }
 
 
 
 
 size_t
-equihash (uint32_t * dst_solutions, crypto_generichash_blake2b_state * digest,
-	  gpu_config_t * base_config)
+equihash(uint32_t * dst_solutions, crypto_generichash_blake2b_state * digest,
+         gpu_config_t * base_config)
 {
   size_t global_work_offset = 0;
   size_t global_work_size = 1 << 20;
@@ -582,94 +549,93 @@ equihash (uint32_t * dst_solutions, crypto_generichash_blake2b_state * digest,
   cl_event timing_events[20];
   cl_int zero = 0;
 
-  check_error (clEnqueueWriteBuffer
-	       (config.command_queue, config.blake2b_digest, CL_TRUE, 0,
-		sizeof (crypto_generichash_blake2b_state), (void *) digest, 0,
-		NULL, NULL), __LINE__);
+  check_error(clEnqueueWriteBuffer
+              (config.command_queue, config.blake2b_digest, CL_TRUE, 0,
+               sizeof(crypto_generichash_blake2b_state), (void *) digest, 0,
+               NULL, NULL), __LINE__);
 
 
-  check_error (clEnqueueFillBuffer
-	       (config.command_queue, config.new_digest_index, &zero, 1, 0,
-		sizeof (uint32_t), 0, NULL, NULL), __LINE__);
-  check_error (clSetKernelArg
-	       (config.initial_bucket_hashing_kernel, 0, sizeof (cl_mem),
-		(void *) &config.buckets), __LINE__);
-  check_error (clSetKernelArg
-	       (config.initial_bucket_hashing_kernel, 1, sizeof (cl_mem),
-		(void *) &config.digests[0]), __LINE__);
-  check_error (clSetKernelArg
-	       (config.initial_bucket_hashing_kernel, 2, sizeof (cl_mem),
-		(void *) &config.blake2b_digest), __LINE__);
-  check_error (clSetKernelArg
-	       (config.initial_bucket_hashing_kernel, 3, sizeof (cl_mem),
-		(void *) &config.new_digest_index), __LINE__);
-  check_error (clEnqueueNDRangeKernel
-	       (config.command_queue, config.initial_bucket_hashing_kernel, 1,
-		&global_work_offset, &global_work_size, &local_work_size, 0,
-		NULL, &timing_events[0]), __LINE__);
-  check_error (clWaitForEvents (1, &timing_events[0]), __LINE__);
-  check_error (clGetEventProfilingInfo
-	       (timing_events[0], CL_PROFILING_COMMAND_START,
-		sizeof (time_start), &time_start, NULL), __LINE__);
-  check_error (clGetEventProfilingInfo
-	       (timing_events[0], CL_PROFILING_COMMAND_END, sizeof (time_end),
-		&time_end, NULL), __LINE__);
-  fprintf (stderr, "step0: %0.3f ms\n", (time_end - time_start) / 1000000.0);
+  check_error(clEnqueueFillBuffer
+              (config.command_queue, config.new_digest_index, &zero, 1, 0,
+               sizeof(uint32_t), 0, NULL, NULL), __LINE__);
+  check_error(clSetKernelArg
+              (config.initial_bucket_hashing_kernel, 0, sizeof(cl_mem),
+               (void *) &config.buckets), __LINE__);
+  check_error(clSetKernelArg
+              (config.initial_bucket_hashing_kernel, 1, sizeof(cl_mem),
+               (void *) &config.digests[0]), __LINE__);
+  check_error(clSetKernelArg
+              (config.initial_bucket_hashing_kernel, 2, sizeof(cl_mem),
+               (void *) &config.blake2b_digest), __LINE__);
+  check_error(clSetKernelArg
+              (config.initial_bucket_hashing_kernel, 3, sizeof(cl_mem),
+               (void *) &config.new_digest_index), __LINE__);
+  check_error(clEnqueueNDRangeKernel
+              (config.command_queue, config.initial_bucket_hashing_kernel, 1,
+               &global_work_offset, &global_work_size, &local_work_size, 0,
+               NULL, &timing_events[0]), __LINE__);
+  check_error(clWaitForEvents(1, &timing_events[0]), __LINE__);
+  check_error(clGetEventProfilingInfo
+              (timing_events[0], CL_PROFILING_COMMAND_START,
+               sizeof(time_start), &time_start, NULL), __LINE__);
+  check_error(clGetEventProfilingInfo
+              (timing_events[0], CL_PROFILING_COMMAND_END, sizeof(time_end),
+               &time_end, NULL), __LINE__);
+  fprintf(stderr, "step0: %0.3f ms\n", (time_end - time_start) / 1000000.0);
   total_time += (time_end - time_start);
 
   global_work_size = NUM_BUCKETS * local_work_size;
 
 
   uint32_t i = 1;
-  for (i = 1; i < EQUIHASH_K; ++i)
-    {
-      fprintf (stderr, "step: %u\n", i);
-      /* Set OpenCL Kernel Parameters */
-      check_error (clEnqueueFillBuffer
-		   (config.command_queue, config.new_digest_index, &zero, 1,
-		    0, sizeof (uint32_t), 0, NULL, NULL), __LINE__);
+  for (i = 1; i < EQUIHASH_K; ++i) {
+    fprintf(stderr, "step: %u\n", i);
+    /* Set OpenCL Kernel Parameters */
+    check_error(clEnqueueFillBuffer
+                (config.command_queue, config.new_digest_index, &zero, 1,
+                 0, sizeof(uint32_t), 0, NULL, NULL), __LINE__);
 
-      check_error (clSetKernelArg
-		   (config.bucket_collide_and_hash_kernel, 0, sizeof (cl_mem),
-		    (void *) &config.digests[i % 2]), __LINE__);
-      check_error (clSetKernelArg
-		   (config.bucket_collide_and_hash_kernel, 1, sizeof (cl_mem),
-		    (void *) &config.digests[(i - 1) % 2]), __LINE__);
-      check_error (clSetKernelArg
-		   (config.bucket_collide_and_hash_kernel, 2, sizeof (cl_mem),
-		    (void *) &config.buckets), __LINE__);
-      check_error (clSetKernelArg
-		   (config.bucket_collide_and_hash_kernel, 3,
-		    sizeof (uint32_t), (void *) &i), __LINE__);
-      check_error (clSetKernelArg
-		   (config.bucket_collide_and_hash_kernel, 4, sizeof (cl_mem),
-		    (void *) &config.new_digest_index), __LINE__);
-      check_error (clSetKernelArg
-		   (config.bucket_collide_and_hash_kernel, 5, sizeof (cl_mem),
-		    (void *) &config.src_local_buckets), __LINE__);
-      //check_error(clSetKernelArg(config.bucket_collide_and_hash_kernel, 6, sizeof(cl_mem), (void *)&config.dst_local_buckets), __LINE__);
-      check_error (clEnqueueNDRangeKernel
-		   (config.command_queue,
-		    config.bucket_collide_and_hash_kernel, 1,
-		    &global_work_offset, &global_work_size, &local_work_size,
-		    0, NULL, &timing_events[i]), __LINE__);
-      check_error (clWaitForEvents (1, &timing_events[i]), __LINE__);
-      check_error (clGetEventProfilingInfo
-		   (timing_events[i], CL_PROFILING_COMMAND_START,
-		    sizeof (time_start), &time_start, NULL), __LINE__);
-      check_error (clGetEventProfilingInfo
-		   (timing_events[i], CL_PROFILING_COMMAND_END,
-		    sizeof (time_end), &time_end, NULL), __LINE__);
+    check_error(clSetKernelArg
+                (config.bucket_collide_and_hash_kernel, 0, sizeof(cl_mem),
+                 (void *) &config.digests[i % 2]), __LINE__);
+    check_error(clSetKernelArg
+                (config.bucket_collide_and_hash_kernel, 1, sizeof(cl_mem),
+                 (void *) &config.digests[(i - 1) % 2]), __LINE__);
+    check_error(clSetKernelArg
+                (config.bucket_collide_and_hash_kernel, 2, sizeof(cl_mem),
+                 (void *) &config.buckets), __LINE__);
+    check_error(clSetKernelArg
+                (config.bucket_collide_and_hash_kernel, 3,
+                 sizeof(uint32_t), (void *) &i), __LINE__);
+    check_error(clSetKernelArg
+                (config.bucket_collide_and_hash_kernel, 4, sizeof(cl_mem),
+                 (void *) &config.new_digest_index), __LINE__);
+    check_error(clSetKernelArg
+                (config.bucket_collide_and_hash_kernel, 5, sizeof(cl_mem),
+                 (void *) &config.src_local_buckets), __LINE__);
+    //check_error(clSetKernelArg(config.bucket_collide_and_hash_kernel, 6, sizeof(cl_mem), (void *)&config.dst_local_buckets), __LINE__);
+    check_error(clEnqueueNDRangeKernel
+                (config.command_queue,
+                 config.bucket_collide_and_hash_kernel, 1,
+                 &global_work_offset, &global_work_size, &local_work_size,
+                 0, NULL, &timing_events[i]), __LINE__);
+    check_error(clWaitForEvents(1, &timing_events[i]), __LINE__);
+    check_error(clGetEventProfilingInfo
+                (timing_events[i], CL_PROFILING_COMMAND_START,
+                 sizeof(time_start), &time_start, NULL), __LINE__);
+    check_error(clGetEventProfilingInfo
+                (timing_events[i], CL_PROFILING_COMMAND_END,
+                 sizeof(time_end), &time_end, NULL), __LINE__);
 
-      uint32_t n_digests = 0;
-      check_error (clEnqueueReadBuffer
-		   (config.command_queue, config.new_digest_index, CL_TRUE, 0,
-		    sizeof (uint32_t), &n_digests, 0, NULL, NULL), __LINE__);
+    uint32_t n_digests = 0;
+    check_error(clEnqueueReadBuffer
+                (config.command_queue, config.new_digest_index, CL_TRUE, 0,
+                 sizeof(uint32_t), &n_digests, 0, NULL, NULL), __LINE__);
 
-      fprintf (stderr, "step %u: %0.3f ms (%u)\n", i,
-	       (time_end - time_start) / 1000000.0, n_digests);
-      total_time += (time_end - time_start);
-    }
+    fprintf(stderr, "step %u: %0.3f ms (%u)\n", i,
+            (time_end - time_start) / 1000000.0, n_digests);
+    total_time += (time_end - time_start);
+  }
 
 
   /*bucket_t* dbg_buckets = malloc(NUM_BUCKETS * sizeof(bucket_t) * EQUIHASH_K * 10);
@@ -692,108 +658,106 @@ equihash (uint32_t * dst_solutions, crypto_generichash_blake2b_state * digest,
 
   uint32_t n_candidates = 0;
 
-  check_error (clEnqueueFillBuffer
-	       (config.command_queue, config.n_candidates, &zero, 1, 0,
-		sizeof (uint32_t), 0, NULL, NULL), __LINE__);
-  check_error (clSetKernelArg
-	       (config.produce_candidates_kernel, 0, sizeof (cl_mem),
-		(void *) &config.dst_candidates), __LINE__);
-  check_error (clSetKernelArg
-	       (config.produce_candidates_kernel, 1, sizeof (cl_mem),
-		(void *) &config.n_candidates), __LINE__);
-  check_error (clSetKernelArg
-	       (config.produce_candidates_kernel, 2, sizeof (cl_mem),
-		(void *) &config.buckets), __LINE__);
-  check_error (clSetKernelArg
-	       (config.produce_candidates_kernel, 3, sizeof (cl_mem),
-		(void *) &config.digests[0]), __LINE__);
-  check_error (clSetKernelArg
-	       (config.produce_candidates_kernel, 4, sizeof (cl_mem),
-		(void *) &config.src_local_buckets), __LINE__);
-  check_error (clEnqueueNDRangeKernel
-	       (config.command_queue, config.produce_candidates_kernel, 1,
-		&global_work_offset, &global_work_size, &local_work_size, 0,
-		NULL, &timing_events[9]), __LINE__);
-  check_error (clWaitForEvents (1, &timing_events[9]), __LINE__);
-  check_error (clGetEventProfilingInfo
-	       (timing_events[9], CL_PROFILING_COMMAND_START,
-		sizeof (time_start), &time_start, NULL), __LINE__);
-  check_error (clGetEventProfilingInfo
-	       (timing_events[9], CL_PROFILING_COMMAND_END, sizeof (time_end),
-		&time_end, NULL), __LINE__);
-  fprintf (stderr, "produce candidates: %0.3f ms\n",
-	   (time_end - time_start) / 1000000.0);
+  check_error(clEnqueueFillBuffer
+              (config.command_queue, config.n_candidates, &zero, 1, 0,
+               sizeof(uint32_t), 0, NULL, NULL), __LINE__);
+  check_error(clSetKernelArg
+              (config.produce_candidates_kernel, 0, sizeof(cl_mem),
+               (void *) &config.dst_candidates), __LINE__);
+  check_error(clSetKernelArg
+              (config.produce_candidates_kernel, 1, sizeof(cl_mem),
+               (void *) &config.n_candidates), __LINE__);
+  check_error(clSetKernelArg
+              (config.produce_candidates_kernel, 2, sizeof(cl_mem),
+               (void *) &config.buckets), __LINE__);
+  check_error(clSetKernelArg
+              (config.produce_candidates_kernel, 3, sizeof(cl_mem),
+               (void *) &config.digests[0]), __LINE__);
+  check_error(clSetKernelArg
+              (config.produce_candidates_kernel, 4, sizeof(cl_mem),
+               (void *) &config.src_local_buckets), __LINE__);
+  check_error(clEnqueueNDRangeKernel
+              (config.command_queue, config.produce_candidates_kernel, 1,
+               &global_work_offset, &global_work_size, &local_work_size, 0,
+               NULL, &timing_events[9]), __LINE__);
+  check_error(clWaitForEvents(1, &timing_events[9]), __LINE__);
+  check_error(clGetEventProfilingInfo
+              (timing_events[9], CL_PROFILING_COMMAND_START,
+               sizeof(time_start), &time_start, NULL), __LINE__);
+  check_error(clGetEventProfilingInfo
+              (timing_events[9], CL_PROFILING_COMMAND_END, sizeof(time_end),
+               &time_end, NULL), __LINE__);
+  fprintf(stderr, "produce candidates: %0.3f ms\n",
+          (time_end - time_start) / 1000000.0);
   total_time += (time_end - time_start);
 
-  check_error (clEnqueueReadBuffer
-	       (config.command_queue, config.n_candidates, CL_TRUE, 0,
-		sizeof (uint32_t), &n_candidates, 0, NULL, NULL), __LINE__);
+  check_error(clEnqueueReadBuffer
+              (config.command_queue, config.n_candidates, CL_TRUE, 0,
+               sizeof(uint32_t), &n_candidates, 0, NULL, NULL), __LINE__);
 
   unsigned largest_bit = 0;
   uint32_t bit_tmp = n_candidates / 2;
-  while (bit_tmp > 0)
-    {
-      largest_bit++;
-      bit_tmp >>= 1;
-    }
+  while (bit_tmp > 0) {
+    largest_bit++;
+    bit_tmp >>= 1;
+  }
 
 
   global_work_size = 1 << largest_bit;
 
-  fprintf (stderr, "produced %u candidates, work size: %u\n",
-	   n_candidates / 2, global_work_size);
+  fprintf(stderr, "produced %u candidates, work size: %u\n",
+          n_candidates / 2, global_work_size);
   uint32_t n_solutions = 0;
 
-  check_error (clEnqueueFillBuffer
-	       (config.command_queue, config.n_solutions, &zero, 1, 0,
-		sizeof (uint32_t), 0, NULL, NULL), __LINE__);
-  check_error (clSetKernelArg
-	       (config.produce_solutions_kernel, 0, sizeof (cl_mem),
-		(void *) &config.dst_solutions), __LINE__);
-  check_error (clSetKernelArg
-	       (config.produce_solutions_kernel, 1, sizeof (cl_mem),
-		(void *) &config.n_solutions), __LINE__);
-  check_error (clSetKernelArg
-	       (config.produce_solutions_kernel, 2, sizeof (cl_mem),
-		(void *) &config.buckets), __LINE__);
-  check_error (clSetKernelArg
-	       (config.produce_solutions_kernel, 3, sizeof (cl_mem),
-		(void *) &config.dst_candidates), __LINE__);
-  check_error (clSetKernelArg
-	       (config.produce_solutions_kernel, 4, sizeof (cl_mem),
-		(void *) &config.n_candidates), __LINE__);
-  check_error (clSetKernelArg
-	       (config.produce_solutions_kernel, 5, sizeof (cl_mem),
-		(void *) &config.elements), __LINE__);
-  check_error (clEnqueueNDRangeKernel
-	       (config.command_queue, config.produce_solutions_kernel, 1,
-		&global_work_offset, &global_work_size, &local_work_size, 0,
-		NULL, &timing_events[10]), __LINE__);
-  check_error (clWaitForEvents (1, &timing_events[10]), __LINE__);
-  check_error (clGetEventProfilingInfo
-	       (timing_events[10], CL_PROFILING_COMMAND_START,
-		sizeof (time_start), &time_start, NULL), __LINE__);
-  check_error (clGetEventProfilingInfo
-	       (timing_events[10], CL_PROFILING_COMMAND_END,
-		sizeof (time_end), &time_end, NULL), __LINE__);
-  fprintf (stderr, "produce solutions: %0.3f ms\n",
-	   (time_end - time_start) / 1000000.0);
+  check_error(clEnqueueFillBuffer
+              (config.command_queue, config.n_solutions, &zero, 1, 0,
+               sizeof(uint32_t), 0, NULL, NULL), __LINE__);
+  check_error(clSetKernelArg
+              (config.produce_solutions_kernel, 0, sizeof(cl_mem),
+               (void *) &config.dst_solutions), __LINE__);
+  check_error(clSetKernelArg
+              (config.produce_solutions_kernel, 1, sizeof(cl_mem),
+               (void *) &config.n_solutions), __LINE__);
+  check_error(clSetKernelArg
+              (config.produce_solutions_kernel, 2, sizeof(cl_mem),
+               (void *) &config.buckets), __LINE__);
+  check_error(clSetKernelArg
+              (config.produce_solutions_kernel, 3, sizeof(cl_mem),
+               (void *) &config.dst_candidates), __LINE__);
+  check_error(clSetKernelArg
+              (config.produce_solutions_kernel, 4, sizeof(cl_mem),
+               (void *) &config.n_candidates), __LINE__);
+  check_error(clSetKernelArg
+              (config.produce_solutions_kernel, 5, sizeof(cl_mem),
+               (void *) &config.elements), __LINE__);
+  check_error(clEnqueueNDRangeKernel
+              (config.command_queue, config.produce_solutions_kernel, 1,
+               &global_work_offset, &global_work_size, &local_work_size, 0,
+               NULL, &timing_events[10]), __LINE__);
+  check_error(clWaitForEvents(1, &timing_events[10]), __LINE__);
+  check_error(clGetEventProfilingInfo
+              (timing_events[10], CL_PROFILING_COMMAND_START,
+               sizeof(time_start), &time_start, NULL), __LINE__);
+  check_error(clGetEventProfilingInfo
+              (timing_events[10], CL_PROFILING_COMMAND_END,
+               sizeof(time_end), &time_end, NULL), __LINE__);
+  fprintf(stderr, "produce solutions: %0.3f ms\n",
+          (time_end - time_start) / 1000000.0);
   total_time += (time_end - time_start);
 
-  check_error (clEnqueueReadBuffer
-	       (config.command_queue, config.dst_solutions, CL_TRUE, 0,
-		10 * NUM_INDICES * sizeof (uint32_t), dst_solutions, 0, NULL,
-		NULL), __LINE__);
-  check_error (clEnqueueReadBuffer
-	       (config.command_queue, config.n_solutions, CL_TRUE, 0,
-		sizeof (uint32_t), &n_solutions, 0, NULL, NULL), __LINE__);
+  check_error(clEnqueueReadBuffer
+              (config.command_queue, config.dst_solutions, CL_TRUE, 0,
+               10 * NUM_INDICES * sizeof(uint32_t), dst_solutions, 0, NULL,
+               NULL), __LINE__);
+  check_error(clEnqueueReadBuffer
+              (config.command_queue, config.n_solutions, CL_TRUE, 0,
+               sizeof(uint32_t), &n_solutions, 0, NULL, NULL), __LINE__);
 
-  fprintf (stderr, "found %u solutions in %0.3f ms\n", n_solutions,
-	   total_time / 1000000.0);
+  fprintf(stderr, "found %u solutions in %0.3f ms\n", n_solutions,
+          total_time / 1000000.0);
 
-  for (i = 0; i < n_solutions; ++i)
-    {
-      normalize_indices (dst_solutions + (NUM_INDICES * i));
-    }
+  for (i = 0; i < n_solutions; ++i) {
+    normalize_indices(dst_solutions + (NUM_INDICES * i));
+  }
   return n_solutions;
 }
