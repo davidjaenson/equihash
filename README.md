@@ -35,7 +35,7 @@ The blake2b state should be initialized with the header data before calling this
 size_t equihash(uint32_t* dst_solutions, crypto_generichash_blake2b_state* state, gpu_config_t* base_config);
 ```
 
-When you're done finding equihash solutions, call "equihash_cleanup". The same params as "equihash_init_buckets".  
+When you're done finding equihash solutions, call "equihash_cleanup". The same param as "equihash_init".  
 ```c
 void equihash_cleanup(gpu_config_t* config);
 ```
