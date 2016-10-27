@@ -46,19 +46,21 @@ typedef uint64_t digest_t[(DIGEST_SIZE + sizeof(uint64_t) - 1) / sizeof(uint64_t
 
 struct element {
     uint32_t digest_index;
-    uint32_t parent_bucket_index;
+    uint32_t parent_bucket_data;
     uint32_t a;
     uint32_t b;
+    uint32_t bucket_size;
+    uint32_t tmp;
 };
 
 
 typedef struct bucket {
-    element_t data[NUM_INDICES_PER_BUCKET/8 * 28];
+    element_t data[NUM_INDICES_PER_BUCKET/8 * 40];
     volatile unsigned size;
 } bucket_t;
 
 typedef struct src_local_bucket {
-    element_t data[18];
+    element_t data[17];
 } src_local_bucket_t;
 
 typedef struct dst_local_bucket {
@@ -417,7 +419,7 @@ void init_program(gpu_config_t* config, const char* file_path, unsigned flags) {
 
 
 
-    config->elements = clCreateBuffer(config->context, CL_MEM_READ_WRITE, sizeof(element_t)*EQUIHASH_K*NUM_INDICES/2*(1<<13), NULL, &ret);
+    config->elements = clCreateBuffer(config->context, CL_MEM_READ_WRITE, sizeof(element_t)*EQUIHASH_K*NUM_INDICES/2*(1<<11), NULL, &ret);
     check_error(ret, __LINE__);
     check_error(clEnqueueFillBuffer(config->command_queue, config->n_solutions, &zero, 1, 0, sizeof(uint32_t), 0, NULL, NULL), __LINE__);
 
@@ -501,6 +503,25 @@ size_t equihash(uint32_t* dst_solutions, crypto_generichash_blake2b_state* diges
         total_time += (time_end-time_start);
     }
 
+
+    /*bucket_t* dbg_buckets = malloc(NUM_BUCKETS * sizeof(bucket_t) * EQUIHASH_K * 10);
+    check_error(clEnqueueReadBuffer(config.command_queue, config.buckets, CL_TRUE, 0, NUM_BUCKETS * sizeof(bucket_t) * EQUIHASH_K, dbg_buckets, 0, NULL, NULL), __LINE__);
+    printf("read buckets\n");
+
+    for(size_t i = 0; i < EQUIHASH_K; ++i) {
+        for(size_t j = 0; j < NUM_BUCKETS; ++j) {
+            bucket_t* bucket = dbg_buckets + (i*NUM_BUCKETS) + j;
+            for(size_t k = 0; k < bucket->size; ++k) {
+                element_t* el = bucket->data + k;
+                if(el->a > 2300 || el->b > 2300 || (el->parent_bucket_data > 1024 && i > 0)) {
+                    printf("step: %u bucket: %u el: %u a: %u b:%u parent: %u\n", i, j, k, el->a, el->b, el->parent_bucket_data);
+                }
+            }
+        }
+    }*/
+
+
+
     uint32_t n_candidates = 0;
 
     check_error(clEnqueueFillBuffer(config.command_queue, config.n_candidates, &zero, 1, 0, sizeof(uint32_t), 0, NULL, NULL), __LINE__);
@@ -547,7 +568,6 @@ size_t equihash(uint32_t* dst_solutions, crypto_generichash_blake2b_state* diges
 
     check_error(clEnqueueReadBuffer(config.command_queue, config.dst_solutions, CL_TRUE, 0, 10*NUM_INDICES*sizeof(uint32_t), dst_solutions, 0, NULL, NULL), __LINE__);
     check_error(clEnqueueReadBuffer(config.command_queue, config.n_solutions, CL_TRUE, 0, sizeof(uint32_t), &n_solutions, 0, NULL, NULL), __LINE__);
-
 
     fprintf(stderr, "found %u solutions in %0.3f ms\n", n_solutions, total_time / 1000000.0);
 
