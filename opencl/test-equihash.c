@@ -43,7 +43,7 @@ int main(int argc, char **argv)
       printf("\n\n");
     }
   }
-
+  equihash_cleanup(config);
   free(config);
   return 0;
 }

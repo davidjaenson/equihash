@@ -527,6 +527,11 @@ void equihash_cleanup(gpu_config_t * config)
   check_error(clReleaseMemObject(config->digests[0]), __LINE__);
   check_error(clReleaseMemObject(config->digests[1]), __LINE__);
   check_error(clReleaseMemObject(config->buckets), __LINE__);
+  check_error(clReleaseMemObject(config->elements), __LINE__);
+  check_error(clReleaseMemObject(config->n_candidates), __LINE__);
+  check_error(clReleaseMemObject(config->dst_candidates), __LINE__);
+  check_error(clReleaseMemObject(config->src_local_buckets), __LINE__);
+
   check_error(clReleaseMemObject(config->blake2b_digest), __LINE__);
   check_error(clReleaseContext(config->context), __LINE__);
 }
