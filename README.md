@@ -7,22 +7,31 @@ Acknowledgements:
 
 
 CPU api
-    Initiate the buckets and the indice tree structure by calling "equihash_init_buckets".
-    void equihash_init_buckets(bucket_t** src, bucket_t** dst, element_indice_t*** indices)
+Initiate the buckets and the indice tree structure by calling "equihash_init_buckets".
+```c
+void equihash_init_buckets(bucket_t** src, bucket_t** dst, element_indice_t*** indices)
+```
 
-    Then call "equihash" which returns the number of solutions found, and places these solutions uncompressed in dst_solutions (512 indices each one 32 bits).
-    The blake2b state should be initialized with the header data before calling this function. The src bucket, dst bucket and indices refer to the same ones as were mentioned above in the "equihash_init_buckets" function.
-    size_t equihash(uint32_t* dst_solutions, const blake2b_state* digest, bucket_t* src, bucket_t* dst, element_indice_t** indices)
+Then call "equihash" which returns the number of solutions found, and places these solutions uncompressed in dst_solutions (512 indices each one 32 bits).
+The blake2b state should be initialized with the header data before calling this function. The src bucket, dst bucket and indices refer to the same ones as were mentioned above in the "equihash_init_buckets" function.
+```c
+size_t equihash(uint32_t* dst_solutions, const blake2b_state* digest, bucket_t* src, bucket_t* dst, element_indice_t** indices)
+```
 
-    When you're done finding equihash solutions, call "equihash_cleanup_buckets". The same params as "equihash_init_buckets"
-    void equihash_cleanup_buckets(bucket_t* src, bucket_t* dst, element_indice_t** indices);
+When you're done finding equihash solutions, call "equihash_cleanup_buckets". The same params as "equihash_init_buckets"    
+```c
+void equihash_cleanup_buckets(bucket_t* src, bucket_t* dst, element_indice_t** indices);
+```
 
 OpenCL api:
-    Initiate the gpu configuration data and the related variables using the "equihash_init" function passing a gpu_config_t struct. 
-    void equihash_init(gpu_config_t* config);
+Initiate the gpu configuration data and the related variables using the "equihash_init" function passing a gpu_config_t struct. 
+```c
+void equihash_init(gpu_config_t* config);
+```
 
-    Then call "equihash" which returns the number of solutions found, and places these solutions uncompressed in dst_solutions (512 indices each one 32 bits).
-    The blake2b state should be initialized with the header data before calling this function.
-    size_t equihash(uint32_t* dst_solutions, crypto_generichash_blake2b_state* state, gpu_config_t* base_config);
-
+Then call "equihash" which returns the number of solutions found, and places these solutions uncompressed in dst_solutions (512 indices each one 32 bits).
+The blake2b state should be initialized with the header data before calling this function.
+```c
+size_t equihash(uint32_t* dst_solutions, crypto_generichash_blake2b_state* state, gpu_config_t* base_config);
+```
 
