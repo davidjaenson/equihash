@@ -349,7 +349,7 @@ void equihash_init(gpu_config_t* config) {
     
 }
 
-void cleanup_program(gpu_config_t* config) {
+void equihash_cleanup(gpu_config_t* config) {
     check_error(clReleaseProgram(config->program), __LINE__);
     check_error(clReleaseKernel(config->initial_bucket_hashing_kernel), __LINE__);
     check_error(clReleaseKernel(config->bucket_collide_and_hash_kernel), __LINE__);

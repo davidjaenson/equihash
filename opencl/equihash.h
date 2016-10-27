@@ -92,7 +92,7 @@ typedef struct dst_local_bucket {
 
 size_t equihash(uint32_t*, crypto_generichash_blake2b_state*, gpu_config_t* base_config);
 void equihash_init(gpu_config_t* config);
-
+void equihash_cleanup(gpu_config_t* config);
 
 
 #endif
