@@ -543,13 +543,10 @@ typedef struct element {
     uint32_t parent_bucket_data;
     uint32_t a;
     uint32_t b;
-    uint32_t bucket_size;
-    uint32_t tmp;
-    //uint32_t parent_bucket_index;
 } element_t;
 
 typedef struct bucket {
-    element_t data[NUM_INDICES_PER_BUCKET/8 * 40];
+    element_t data[NUM_INDICES_PER_BUCKET/8 * 28];
     volatile unsigned size;
 } bucket_t;
 
@@ -711,8 +708,6 @@ __kernel void bucket_collide_and_hash(__global digest_t* dst_digests, __global d
             new_el->parent_bucket_data = get_group_id(0);
             new_el->a = base.parent_bucket_data;
             new_el->b = el.parent_bucket_data;
-            new_el->bucket_size = bucket->size;
-            new_el->tmp = get_group_id(0);
             xor_elements((__global uint8_t*)(dst_digests + new_el->digest_index), base_digest, el_digest);
         }
     }

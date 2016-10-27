@@ -49,13 +49,11 @@ struct element {
     uint32_t parent_bucket_data;
     uint32_t a;
     uint32_t b;
-    uint32_t bucket_size;
-    uint32_t tmp;
 };
 
 
 typedef struct bucket {
-    element_t data[NUM_INDICES_PER_BUCKET/8 * 40];
+    element_t data[NUM_INDICES_PER_BUCKET/8 * 28];
     volatile unsigned size;
 } bucket_t;
 
