@@ -13,12 +13,12 @@ void equihash_init_buckets(bucket_t** src, bucket_t** dst, element_indice_t*** i
 ```
 
 Then call "equihash" which returns the number of solutions found, and places these solutions uncompressed in dst_solutions (512 indices each one 32 bits).
-The blake2b state should be initialized with the header data before calling this function. The src bucket, dst bucket and indices refer to the same ones as were mentioned above in the "equihash_init_buckets" function.
+The blake2b state should be initialized with the header data before calling this function. The src buckets, dst buckets and indices refer to the same ones as were mentioned above in the "equihash_init_buckets" function.
 ```c
-size_t equihash(uint32_t* dst_solutions, const blake2b_state* digest, bucket_t* src, bucket_t* dst, element_indice_t** indices)
+size_t equihash(uint32_t* dst_solutions, const blake2b_state* state, bucket_t* src, bucket_t* dst, element_indice_t** indices)
 ```
 
-When you're done finding equihash solutions, call "equihash_cleanup_buckets". The same params as "equihash_init_buckets"    
+When you're done finding equihash solutions, call "equihash_cleanup_buckets". The same params as "equihash_init_buckets".  
 ```c
 void equihash_cleanup_buckets(bucket_t* src, bucket_t* dst, element_indice_t** indices);
 ```
@@ -35,3 +35,7 @@ The blake2b state should be initialized with the header data before calling this
 size_t equihash(uint32_t* dst_solutions, crypto_generichash_blake2b_state* state, gpu_config_t* base_config);
 ```
 
+When you're done finding equihash solutions, call "equihash_cleanup". The same params as "equihash_init_buckets".  
+```c
+void equihash_cleanup(gpu_config_t* config);
+```
