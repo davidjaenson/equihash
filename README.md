@@ -6,7 +6,7 @@ Acknowledgements:
     Oct 20, 2016: The CPU-version uses the Tromp's modified blake2b code and his method for initializing the blake2b state.
 
 
-CPU api
+### CPU equihash API
 Initiate the buckets and the indice tree structure by calling "equihash_init_buckets".
 ```c
 void equihash_init_buckets(bucket_t** src, bucket_t** dst, element_indice_t*** indices)
@@ -23,7 +23,7 @@ When you're done finding equihash solutions, call "equihash_cleanup_buckets". Th
 void equihash_cleanup_buckets(bucket_t* src, bucket_t* dst, element_indice_t** indices);
 ```
 
-OpenCL api:
+### OpenCL equihash API:
 Initiate the gpu configuration data and the related variables using the "equihash_init" function passing a gpu_config_t struct. 
 ```c
 void equihash_init(gpu_config_t* config);
