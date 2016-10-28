@@ -39,3 +39,9 @@ When you're done finding equihash solutions, call "equihash_cleanup". The same p
 ```c
 void equihash_cleanup(gpu_config_t* config);
 ```
+
+### Future improvements
+* A lot of microoptimizations
+* The opencl code currently calculates the produce_solutions step from the candidate solutions very inefficiently. Proper parallelization of this kernel can increase performance by a lot. 
+* Each slot "element_t" in a bucket uses 128 bit of memory. This can the very least be reduced to 64 bits.
+* Proper selection of the number of buckets and slots per bucket. Currently 1024 buckets are used.
