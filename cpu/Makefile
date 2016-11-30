@@ -1,5 +1,5 @@
 GCC   = gcc $(FLAGS)
-FLAGS = -lsodium -lpthread -ffast-math -pthread -D_POSIX_SOURCE -Ofast -march=native --pedantic -Wall -std=c11
+FLAGS = -lpthread -ffast-math -pthread -D_POSIX_SOURCE -Ofast -march=native --pedantic -Wall -std=c11
 
 all: time-equihash
 

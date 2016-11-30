@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
-#include <sodium.h>
 #include <unistd.h>
 #include <time.h>
 #include <sys/time.h>
